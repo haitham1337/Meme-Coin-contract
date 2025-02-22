@@ -1,0 +1,98 @@
+use anchor_lang::prelude::*;
+use anchor_spl::token::{self, Mint, TokenAccount, Token, MintTo, Transfer};
+
+declare_id!("YourProgramIDHere11111111111111111111111111111111");
+
+#[program]
+pub mod meme_coin {
+    use super::*;
+
+    // Initialization function to mint the initial supply of the token.
+    // This function mints the initial_supply to the destination account.
+    pub fn initialize(ctx: Context<Initialize>, initial_supply: u64) -> ProgramResult {
+        token::mint_to(ctx.accounts.into_mint_to_context(), initial_supply)?;
+        Ok(())
+    }
+
+    // Function to mint additional tokens after the initial mint.
+    pub fn mint_more(ctx: Context<MintTokens>, amount: u64) -> ProgramResult {
+        token::mint_to(ctx.accounts.into_mint_to_context(), amount)?;
+        Ok(())
+    }
+
+    // Function to transfer tokens between accounts.
+    pub fn transfer_tokens(ctx: Context<TransferTokens>, amount: u64) -> ProgramResult {
+        token::transfer(ctx.accounts.into_transfer_context(), amount)?;
+        Ok(())
+    }
+}
+
+// Context for the initialization function.
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    // The mint account; should be initialized beforehand using the SPL Token program.
+    #[account(mut)]
+    pub mint: Account<'info, Mint>,
+    // The destination account that will receive the initial supply.
+    #[account(mut)]
+    pub destination: Account<'info, TokenAccount>,
+    // The authority allowed to mint tokens.
+    pub authority: Signer<'info>,
+    // The SPL Token program.
+    pub token_program: Program<'info, Token>,
+}
+
+impl<'info> Initialize<'info> {
+    fn into_mint_to_context(&self) -> CpiContext<'_, '_, '_, 'info, MintTo<'info>> {
+        let cpi_accounts = MintTo {
+            mint: self.mint.to_account_info(),
+            to: self.destination.to_account_info(),
+            authority: self.authority.to_account_info(),
+        };
+        CpiContext::new(self.token_program.to_account_info(), cpi_accounts)
+    }
+}
+
+// Context for minting additional tokens.
+#[derive(Accounts)]
+pub struct MintTokens<'info> {
+    #[account(mut)]
+    pub mint: Account<'info, Mint>,
+    #[account(mut)]
+    pub destination: Account<'info, TokenAccount>,
+    pub authority: Signer<'info>,
+    pub token_program: Program<'info, Token>,
+}
+
+impl<'info> MintTokens<'info> {
+    fn into_mint_to_context(&self) -> CpiContext<'_, '_, '_, 'info, MintTo<'info>> {
+        let cpi_accounts = MintTo {
+            mint: self.mint.to_account_info(),
+            to: self.destination.to_account_info(),
+            authority: self.authority.to_account_info(),
+        };
+        CpiContext::new(self.token_program.to_account_info(), cpi_accounts)
+    }
+}
+
+// Context for transferring tokens between accounts.
+#[derive(Accounts)]
+pub struct TransferTokens<'info> {
+    #[account(mut)]
+    pub from: Account<'info, TokenAccount>,
+    #[account(mut)]
+    pub to: Account<'info, TokenAccount>,
+    pub authority: Signer<'info>,
+    pub token_program: Program<'info, Token>,
+}
+
+impl<'info> TransferTokens<'info> {
+    fn into_transfer_context(&self) -> CpiContext<'_, '_, '_, 'info, Transfer<'info>> {
+        let cpi_accounts = Transfer {
+            from: self.from.to_account_info(),
+            to: self.to.to_account_info(),
+            authority: self.authority.to_account_info(),
+        };
+        CpiContext::new(self.token_program.to_account_info(), cpi_accounts)
+    }
+}
